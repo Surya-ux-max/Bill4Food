@@ -223,9 +223,9 @@ function Hero({ onLogin }) {
           lineHeight: 1.08, letterSpacing: '-2px',
           color: '#ffffff', maxWidth: 820, marginBottom: 16,
         }}>
-          Sri Eshwarites'<br />
-          <span style={{ color: GMID }}>Favourite</span>{' '}
-          <span style={{ color: 'transparent', WebkitTextStroke: `2px ${G}` }}>Bill Buddy.</span>
+          Bill4Food<br />
+          <span style={{ color: GMID }}>for</span>{' '}
+          <span style={{ color: 'transparent', WebkitTextStroke: `2px ${G}` }}>Sri Eshwarites</span>
         </motion.h1>
 
         {/* fancy sub-taglines */}

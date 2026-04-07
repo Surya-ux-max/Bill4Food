@@ -231,19 +231,6 @@ function TokenScreen({ token, total, slot, items, lines, time, onBack }) {
 
           <div style={{ width: '100%', height: 1, background: `${GMID}40` }} />
 
-          {/* UPI ID */}
-          <div style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: GLIGHT, borderRadius: 12, padding: '10px 14px' }}>
-            <div style={{ textAlign: 'left' }}>
-              <div style={{ fontSize: 10, fontWeight: 700, color: GMUTE, letterSpacing: 1, textTransform: 'uppercase' }}>UPI ID</div>
-              <div style={{ fontSize: 13, fontWeight: 800, color: GDARK, marginTop: 2 }}>{UPI_ID}</div>
-            </div>
-            <motion.button whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }} onClick={copyUpi}
-              style={{ background: copied ? G : '#fff', border: `1px solid ${GMID}`, borderRadius: 8, padding: '6px 10px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4, color: copied ? '#fff' : GDARK, fontWeight: 700, fontSize: 12, transition: 'all 0.2s' }}>
-              {copied ? <CheckCircle2 size={13} /> : <Copy size={13} />}
-              {copied ? 'Copied!' : 'Copy'}
-            </motion.button>
-          </div>
-
           {/* Token */}
           <div style={{ width: '100%', textAlign: 'center', background: '#f9fafb', borderRadius: 12, padding: '10px' }}>
             <div style={{ fontSize: 10, fontWeight: 700, color: GMUTE, letterSpacing: 2, textTransform: 'uppercase' }}>Your Order Token</div>
