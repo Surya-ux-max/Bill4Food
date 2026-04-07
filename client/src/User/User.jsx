@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, lazy, Suspense } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { ShoppingCart, Plus, Minus, X, ArrowLeft, Sparkles, Zap, CheckCircle2, Copy, Download } from 'lucide-react'
 import { QRCodeSVG } from 'qrcode.react'
@@ -6,6 +6,7 @@ import html2canvas from 'html2canvas'
 import ClickSpark from './ClickSpark'
 import { api } from '../api'
 import { MEAL_SLOTS } from '../Admin/adminData'
+const FloatingFood3D = lazy(() => import('./FloatingFood3D'))
 
 /* ── theme ───────────────────────────────────────────────────── */
 const G     = '#16a34a'
@@ -523,11 +524,13 @@ export default function User() {
     <ClickSpark sparkColor={GMID} sparkSize={10} sparkRadius={20} sparkCount={8} duration={500}>
       <div style={{ minHeight: '100vh', background: '#071a0f', fontFamily: "'Segoe UI', system-ui, sans-serif", color: '#fff', overflowX: 'hidden' }}>
 
-        {/* ── bg mesh ── */}
-        <div style={{ position: 'fixed', inset: 0, pointerEvents: 'none', zIndex: 0, overflow: 'hidden' }}>
-          <div style={{ position: 'absolute', top: '10%', left: '20%', width: 400, height: 400, borderRadius: '50%', background: 'radial-gradient(circle, #16a34a0a 0%, transparent 70%)', filter: 'blur(40px)' }} />
-          <div style={{ position: 'absolute', bottom: '20%', right: '10%', width: 300, height: 300, borderRadius: '50%', background: 'radial-gradient(circle, #16a34a08 0%, transparent 70%)', filter: 'blur(40px)' }} />
-        </div>
+        {/* ── 3D floating food background ── */}
+        <Suspense fallback={null}>
+          <FloatingFood3D />
+        </Suspense>
+
+        {/* dark overlay so 3D doesn't overpower content */}
+        <div style={{ position: 'fixed', inset: 0, zIndex: 1, pointerEvents: 'none', background: 'rgba(7,26,15,0.25)' }} />
 
         {/* ── Header ── */}
         <header style={{
@@ -575,7 +578,7 @@ export default function User() {
         </header>
 
         {/* ── Hero ── */}
-        <div style={{ padding: '52px 28px 40px', textAlign: 'center', position: 'relative', zIndex: 1 }}>
+        <div style={{ padding: '52px 28px 40px', textAlign: 'center', position: 'relative', zIndex: 2 }}>
           <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6 }}>
             <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: 5, color: GMID, textTransform: 'uppercase', marginBottom: 14, opacity: 0.7 }}>
               Bill4Food - SECE CANTEEN
@@ -651,7 +654,7 @@ export default function User() {
         </div>
 
         {/* ── Menu Grid ── */}
-        <main style={{ maxWidth: 1060, margin: '0 auto', padding: '0 24px 60px', position: 'relative', zIndex: 1 }}>
+        <main style={{ maxWidth: 1060, margin: '0 auto', padding: '0 24px 60px', position: 'relative', zIndex: 2 }}>
           {shopLoading && (
             <p style={{ textAlign: 'center', color: GMID }}>Loading menu…</p>
           )}
