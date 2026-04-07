@@ -1,6 +1,8 @@
-import { useState, useEffect } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { ShoppingCart, Plus, Minus, X, ArrowLeft, Sparkles, Zap } from 'lucide-react'
+import { ShoppingCart, Plus, Minus, X, ArrowLeft, Sparkles, Zap, CheckCircle2, Copy, Download } from 'lucide-react'
+import { QRCodeSVG } from 'qrcode.react'
+import html2canvas from 'html2canvas'
 import ClickSpark from './ClickSpark'
 import { api } from '../api'
 import { MEAL_SLOTS } from '../Admin/adminData'
@@ -19,122 +21,235 @@ function slotLabel(id) {
   return MEAL_SLOTS.find((s) => s.id === id)?.label ?? id
 }
 
-/* ── Token Screen ────────────────────────────────────────────── */
-function TokenScreen({ token, total, onBack }) {
+/* ── UPI config ─────────────────────────────────────────────── */
+const UPI_ID = 'surprakas14@okaxis'
+const PAYEE  = 'Bill4Food SECE'
+
+function makeUpiUrl(amount, token) {
+  return `upi://pay?pa=${UPI_ID}&pn=${encodeURIComponent(PAYEE)}&am=${amount}&cu=INR&tn=${encodeURIComponent('Bill4Food Order ' + token)}`
+}
+
+/* ── Bill Screen ────────────────────────────────────────────── */
+function BillScreen({ token, total, slot, items, lines, time, onBack }) {
+  const billRef = useRef(null)
+
+  const downloadBill = async () => {
+    if (!billRef.current) return
+    const canvas = await html2canvas(billRef.current, { scale: 2, backgroundColor: '#ffffff' })
+    const link = document.createElement('a')
+    link.download = `Bill4Food_${token}.png`
+    link.href = canvas.toDataURL('image/png')
+    link.click()
+  }
+
+  const now = new Date()
+  const dateStr = now.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })
+  const timeStr = now.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })
+
   return (
     <ClickSpark sparkColor={GMID} sparkSize={12} sparkRadius={22} sparkCount={10} duration={500}>
       <div style={{
         minHeight: '100vh', display: 'flex', flexDirection: 'column',
         alignItems: 'center', justifyContent: 'center',
         background: 'linear-gradient(135deg, #071a0f 0%, #0f2d1a 50%, #071a0f 100%)',
-        padding: 24, textAlign: 'center', fontFamily: "'Segoe UI', system-ui, sans-serif",
+        padding: '32px 24px', fontFamily: "'Segoe UI', system-ui, sans-serif",
         position: 'relative', overflow: 'hidden',
       }}>
         {/* bg glow */}
         <div style={{ position: 'absolute', top: '30%', left: '50%', transform: 'translate(-50%,-50%)', width: 500, height: 500, borderRadius: '50%', background: 'radial-gradient(circle, #16a34a18 0%, transparent 70%)', pointerEvents: 'none' }} />
 
-        {/* floating particles */}
-        {[...Array(6)].map((_, i) => (
-          <motion.div key={i}
-            animate={{ y: [0, -30, 0], opacity: [0.4, 1, 0.4] }}
-            transition={{ repeat: Infinity, duration: 2.5 + i * 0.4, delay: i * 0.3 }}
-            style={{ position: 'absolute', width: 6, height: 6, borderRadius: '50%', background: GMID, left: `${15 + i * 14}%`, top: `${20 + (i % 3) * 15}%` }} />
-        ))}
+        <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ type: 'spring', stiffness: 200 }}
+          style={{ marginBottom: 16, width: 56, height: 56, borderRadius: '50%', background: G, display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: `0 0 32px ${G}60` }}>
+          <CheckCircle2 size={28} color="#fff" />
+        </motion.div>
 
-        <motion.div initial={{ scale: 0, rotate: -180 }} animate={{ scale: 1, rotate: 0 }}
-          transition={{ type: 'spring', stiffness: 200, damping: 15 }}
-          style={{ fontSize: 72, marginBottom: 8 }}>🎉</motion.div>
-
-        <motion.h2 initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}
-          style={{ fontSize: 36, fontWeight: 900, marginBottom: 6,
-            background: `linear-gradient(135deg, #fff 0%, ${GMID} 100%)`,
-            WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
-          Order Confirmed!
+        <motion.h2 initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }}
+          style={{ fontSize: 24, fontWeight: 900, marginBottom: 4, background: `linear-gradient(135deg, #fff 0%, ${GMID} 100%)`, WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
+          Payment Successful!
         </motion.h2>
+        <p style={{ color: GMID, fontSize: 13, marginBottom: 24, opacity: 0.7 }}>Your bill is ready. Show token at counter.</p>
 
-        <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.3 }}
-          style={{ color: GMID, fontSize: 15, marginBottom: 36, opacity: 0.8 }}>
-          Scan the QR code below to complete your payment
-        </motion.p>
-
-        {/* QR code placeholder */}
-        <motion.div initial={{ scale: 0.7, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
-          transition={{ delay: 0.35, type: 'spring', stiffness: 180 }}
+        {/* Bill card — this gets downloaded */}
+        <motion.div ref={billRef} initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}
           style={{
-            background: '#fff',
-            borderRadius: 24,
-            padding: 28,
-            boxShadow: `0 0 60px ${G}30, 0 20px 60px rgba(0,0,0,0.4)`,
-            display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16,
+            background: '#fff', borderRadius: 20, width: '100%', maxWidth: 360,
+            overflow: 'hidden', boxShadow: `0 0 60px ${G}25, 0 20px 60px rgba(0,0,0,0.5)`,
           }}>
 
-          {/* QR frame */}
-          <div style={{
-            width: 200, height: 200,
-            borderRadius: 16,
-            background: '#f9fafb',
-            border: `3px solid ${G}`,
-            display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-            position: 'relative', overflow: 'hidden',
-            gap: 8,
-          }}>
-            {/* corner markers */}
-            {[['0%','0%','right','bottom'],['100%','0%','left','bottom'],['0%','100%','right','top'],['100%','100%','left','top']].map(([l, t, br, bb], i) => (
-              <div key={i} style={{
-                position: 'absolute', left: l, top: t,
-                width: 28, height: 28,
-                borderTop: i < 2 ? `4px solid ${G}` : 'none',
-                borderBottom: i >= 2 ? `4px solid ${G}` : 'none',
-                borderLeft: i % 2 === 0 ? `4px solid ${G}` : 'none',
-                borderRight: i % 2 === 1 ? `4px solid ${G}` : 'none',
-                borderRadius: i === 0 ? '8px 0 0 0' : i === 1 ? '0 8px 0 0' : i === 2 ? '0 0 0 8px' : '0 0 8px 0',
-              }} />
-            ))}
-
-            {/* scan line animation */}
-            <motion.div
-              animate={{ y: [-80, 80, -80] }}
-              transition={{ repeat: Infinity, duration: 2, ease: 'linear' }}
-              style={{
-                position: 'absolute', left: 8, right: 8, height: 2,
-                background: `linear-gradient(90deg, transparent, ${G}, transparent)`,
-                boxShadow: `0 0 8px ${G}`,
-              }} />
-
-            {/* placeholder grid */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 3, padding: 16, opacity: 0.15 }}>
-              {Array.from({ length: 49 }, (_, i) => (
-                <div key={i} style={{ width: 16, height: 16, borderRadius: 2, background: Math.random() > 0.5 ? GDARK : 'transparent' }} />
-              ))}
-            </div>
-
-            <div style={{ position: 'absolute', bottom: 10, fontSize: 10, fontWeight: 700, color: GMUTE, letterSpacing: 2 }}>SCAN TO PAY</div>
+          {/* bill header */}
+          <div style={{ background: `linear-gradient(135deg, ${GDARK}, ${G})`, padding: '20px 24px', textAlign: 'center' }}>
+            <div style={{ fontWeight: 900, fontSize: 22, color: '#fff', letterSpacing: '-0.5px' }}>Bill<span style={{ color: GMID }}>4</span>Food</div>
+            <div style={{ fontSize: 11, color: GMID, opacity: 0.8, letterSpacing: 2, marginTop: 2 }}>SECE CANTEEN</div>
+            <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.6)', marginTop: 6 }}>{dateStr} &nbsp;|&nbsp; {timeStr}</div>
           </div>
 
-          {/* order summary */}
+          {/* token + slot */}
+          <div style={{ display: 'flex', borderBottom: `1px dashed ${GMID}60` }}>
+            <div style={{ flex: 1, padding: '14px 20px', borderRight: `1px dashed ${GMID}60`, textAlign: 'center' }}>
+              <div style={{ fontSize: 10, fontWeight: 700, color: GMUTE, letterSpacing: 2, textTransform: 'uppercase' }}>Token</div>
+              <div style={{ fontSize: 28, fontWeight: 900, color: G, lineHeight: 1.2 }}>{token}</div>
+            </div>
+            <div style={{ flex: 1, padding: '14px 20px', textAlign: 'center' }}>
+              <div style={{ fontSize: 10, fontWeight: 700, color: GMUTE, letterSpacing: 2, textTransform: 'uppercase' }}>Slot</div>
+              <div style={{ fontSize: 16, fontWeight: 800, color: GDARK, lineHeight: 1.2, marginTop: 4, textTransform: 'capitalize' }}>{slot}</div>
+            </div>
+          </div>
+
+          {/* items */}
+          <div style={{ padding: '16px 20px', borderBottom: `1px dashed ${GMID}60` }}>
+            <div style={{ fontSize: 10, fontWeight: 700, color: GMUTE, letterSpacing: 2, textTransform: 'uppercase', marginBottom: 10 }}>Order Items</div>
+            {(lines && lines.length > 0 ? lines : items.split(', ').map(i => ({ name: i, qty: 1, unitPrice: '-', lineTotal: '-' }))).map((line, i) => (
+              <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                <div style={{ textAlign: 'left' }}>
+                  <div style={{ fontWeight: 700, fontSize: 14, color: GDARK }}>{line.name}</div>
+                  <div style={{ fontSize: 11, color: GMUTE }}>x{line.qty} &nbsp;@ &#8377;{line.unitPrice}</div>
+                </div>
+                <div style={{ fontWeight: 800, fontSize: 14, color: GDARK }}>&#8377;{line.lineTotal}</div>
+              </div>
+            ))}
+          </div>
+
+          {/* total */}
+          <div style={{ padding: '14px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: GLIGHT }}>
+            <span style={{ fontWeight: 800, fontSize: 15, color: GDARK }}>Total Paid</span>
+            <span style={{ fontWeight: 900, fontSize: 22, color: G }}>&#8377;{total}</span>
+          </div>
+
+          {/* UPI ref */}
+          <div style={{ padding: '10px 20px', textAlign: 'center', background: '#f9fafb' }}>
+            <div style={{ fontSize: 10, color: GMUTE }}>Paid via UPI &nbsp;|&nbsp; {UPI_ID}</div>
+            <div style={{ fontSize: 10, color: GMUTE, marginTop: 2 }}>Powered by Bill4Food &nbsp;&bull;&nbsp; Sri Eshwar College</div>
+          </div>
+        </motion.div>
+
+        {/* actions */}
+        <div style={{ display: 'flex', gap: 12, marginTop: 20, flexWrap: 'wrap', justifyContent: 'center' }}>
+          <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} onClick={downloadBill}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '12px 24px', borderRadius: 50, border: 'none', background: G, color: '#fff', fontWeight: 800, fontSize: 14, cursor: 'pointer', boxShadow: `0 4px 20px ${G}50` }}>
+            <Download size={16} /> Download Bill
+          </motion.button>
+          <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} onClick={onBack}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '12px 24px', borderRadius: 50, border: `1px solid ${GMID}40`, background: 'rgba(22,163,74,0.12)', color: GMID, fontWeight: 800, fontSize: 14, cursor: 'pointer' }}>
+            <ArrowLeft size={16} /> New Order
+          </motion.button>
+        </div>
+      </div>
+    </ClickSpark>
+  )
+}
+
+/* ── Token Screen ────────────────────────────────────────────── */
+function TokenScreen({ token, total, slot, items, lines, time, onBack }) {
+  const [copied, setCopied] = useState(false)
+  const [paid,   setPaid]   = useState(false)
+  const upiUrl = makeUpiUrl(total, token)
+
+  if (paid) return <BillScreen token={token} total={total} slot={slot} items={items} lines={lines} time={time} onBack={onBack} />
+
+  const copyUpi = () => {
+    navigator.clipboard.writeText(UPI_ID)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
+  }
+
+  return (
+    <ClickSpark sparkColor={GMID} sparkSize={12} sparkRadius={22} sparkCount={10} duration={500}>
+      <div style={{
+        minHeight: '100vh', display: 'flex', flexDirection: 'column',
+        alignItems: 'center', justifyContent: 'center',
+        background: 'linear-gradient(135deg, #071a0f 0%, #0f2d1a 50%, #071a0f 100%)',
+        padding: '32px 24px', textAlign: 'center',
+        fontFamily: "'Segoe UI', system-ui, sans-serif",
+        position: 'relative', overflow: 'hidden',
+      }}>
+        <div style={{ position: 'absolute', top: '30%', left: '50%', transform: 'translate(-50%,-50%)', width: 500, height: 500, borderRadius: '50%', background: 'radial-gradient(circle, #16a34a18 0%, transparent 70%)', pointerEvents: 'none' }} />
+
+        {[...Array(5)].map((_, i) => (
+          <motion.div key={i}
+            animate={{ y: [0, -28, 0], opacity: [0.3, 0.9, 0.3] }}
+            transition={{ repeat: Infinity, duration: 2.5 + i * 0.4, delay: i * 0.3 }}
+            style={{ position: 'absolute', width: 5, height: 5, borderRadius: '50%', background: GMID, left: `${12 + i * 16}%`, top: `${18 + (i % 3) * 14}%` }} />
+        ))}
+
+        <motion.div initial={{ opacity: 0, y: -16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }}
+          style={{ marginBottom: 20 }}>
+          <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: 4, color: GMID, textTransform: 'uppercase', opacity: 0.7, marginBottom: 6 }}>Order Confirmed</div>
+          <h2 style={{ fontSize: 'clamp(1.6rem, 4vw, 2.4rem)', fontWeight: 900, margin: 0, background: `linear-gradient(135deg, #fff 0%, ${GMID} 100%)`, WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
+            Complete Your Payment
+          </h2>
+          <p style={{ color: GMID, fontSize: 14, marginTop: 8, opacity: 0.7 }}>Scan with GPay, PhonePe or Paytm</p>
+        </motion.div>
+
+        <motion.div initial={{ scale: 0.85, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
+          transition={{ delay: 0.2, type: 'spring', stiffness: 180 }}
+          style={{ background: '#fff', borderRadius: 28, padding: '28px 32px', boxShadow: `0 0 80px ${G}30, 0 24px 64px rgba(0,0,0,0.5)`, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 20, maxWidth: 340, width: '100%' }}>
+
+          {/* GPay header */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%' }}>
+            <div style={{ width: 36, height: 36, borderRadius: 10, background: G, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <span style={{ color: '#fff', fontWeight: 900, fontSize: 14 }}>G</span>
+            </div>
+            <div style={{ textAlign: 'left' }}>
+              <div style={{ fontWeight: 800, fontSize: 14, color: GDARK }}>Google Pay</div>
+              <div style={{ fontSize: 11, color: GMUTE }}>UPI Payment</div>
+            </div>
+            <div style={{ marginLeft: 'auto', fontSize: 11, fontWeight: 700, padding: '3px 10px', borderRadius: 99, background: GLIGHT, color: G }}>LIVE</div>
+          </div>
+
+          <div style={{ width: '100%', height: 1, background: `${GMID}40` }} />
+
+          {/* Real QR */}
+          <div style={{ position: 'relative', padding: 12, borderRadius: 16, border: `2px solid ${GMID}`, background: '#fff' }}>
+            <QRCodeSVG value={upiUrl} size={200} bgColor="#ffffff" fgColor={GDARK} level="H" includeMargin={false} />
+            <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', width: 36, height: 36, borderRadius: 8, background: G, display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 2px 8px rgba(0,0,0,0.2)' }}>
+              <span style={{ color: '#fff', fontWeight: 900, fontSize: 13 }}>B4</span>
+            </div>
+          </div>
+
+          {/* Amount */}
           <div style={{ textAlign: 'center' }}>
-            <div style={{ fontSize: 12, fontWeight: 700, color: GMUTE, letterSpacing: 2, textTransform: 'uppercase', marginBottom: 4 }}>Your token</div>
-            <div style={{ fontSize: 36, fontWeight: 900, color: GDARK }}>{token}</div>
-            <div style={{ fontSize: 18, fontWeight: 800, color: GDARK, marginTop: 8 }}>₹{total}</div>
-            <div style={{ fontSize: 11, color: GMUTE, marginTop: 4 }}>SECE Canteen · Powered by Bill4Food</div>
+            <div style={{ fontSize: 12, fontWeight: 700, color: GMUTE, letterSpacing: 2, textTransform: 'uppercase', marginBottom: 4 }}>Amount to Pay</div>
+            <div style={{ fontSize: 40, fontWeight: 900, color: GDARK, lineHeight: 1 }}>&#8377;{total}</div>
+          </div>
+
+          <div style={{ width: '100%', height: 1, background: `${GMID}40` }} />
+
+          {/* UPI ID */}
+          <div style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: GLIGHT, borderRadius: 12, padding: '10px 14px' }}>
+            <div style={{ textAlign: 'left' }}>
+              <div style={{ fontSize: 10, fontWeight: 700, color: GMUTE, letterSpacing: 1, textTransform: 'uppercase' }}>UPI ID</div>
+              <div style={{ fontSize: 13, fontWeight: 800, color: GDARK, marginTop: 2 }}>{UPI_ID}</div>
+            </div>
+            <motion.button whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }} onClick={copyUpi}
+              style={{ background: copied ? G : '#fff', border: `1px solid ${GMID}`, borderRadius: 8, padding: '6px 10px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4, color: copied ? '#fff' : GDARK, fontWeight: 700, fontSize: 12, transition: 'all 0.2s' }}>
+              {copied ? <CheckCircle2 size={13} /> : <Copy size={13} />}
+              {copied ? 'Copied!' : 'Copy'}
+            </motion.button>
+          </div>
+
+          {/* Token */}
+          <div style={{ width: '100%', textAlign: 'center', background: '#f9fafb', borderRadius: 12, padding: '10px' }}>
+            <div style={{ fontSize: 10, fontWeight: 700, color: GMUTE, letterSpacing: 2, textTransform: 'uppercase' }}>Your Order Token</div>
+            <div style={{ fontSize: 28, fontWeight: 900, color: G, marginTop: 2 }}>{token}</div>
+            <div style={{ fontSize: 11, color: GMUTE, marginTop: 2 }}>Show at counter after payment</div>
           </div>
         </motion.div>
 
         <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.5 }}
-          style={{ color: GMID, fontSize: 12, marginTop: 20, opacity: 0.5, maxWidth: 280 }}>
-          QR payment integration coming soon. Your order is confirmed.
+          style={{ color: GMID, fontSize: 12, marginTop: 20, opacity: 0.5, maxWidth: 300 }}>
+          Open GPay &#8594; Scan QR or enter UPI ID manually
         </motion.p>
 
-        <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}
-          onClick={onBack}
-          style={{
-            marginTop: 20, display: 'inline-flex', alignItems: 'center', gap: 8,
-            padding: '13px 32px', borderRadius: 50, border: `1px solid ${GMID}40`,
-            background: 'rgba(22,163,74,0.15)', color: GMID,
-            fontWeight: 800, fontSize: 15, cursor: 'pointer',
-          }}>
-          <ArrowLeft size={16} /> Order Again
-        </motion.button>
+        <div style={{ display: 'flex', gap: 12, marginTop: 16, flexWrap: 'wrap', justifyContent: 'center' }}>
+          <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} onClick={() => setPaid(true)}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '12px 28px', borderRadius: 50, border: 'none', background: G, color: '#fff', fontWeight: 800, fontSize: 14, cursor: 'pointer', boxShadow: `0 4px 20px ${G}50` }}>
+            <CheckCircle2 size={16} /> I&apos;ve Paid — Show Bill
+          </motion.button>
+          <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} onClick={onBack}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '12px 28px', borderRadius: 50, border: `1px solid ${GMID}40`, background: 'rgba(22,163,74,0.15)', color: GMID, fontWeight: 800, fontSize: 14, cursor: 'pointer' }}>
+            <ArrowLeft size={16} /> Order Again
+          </motion.button>
+        </div>
       </div>
     </ClickSpark>
   )
@@ -325,7 +440,7 @@ export default function User() {
   const [cart, setCart] = useState({})
   const [cartOpen, setCartOpen] = useState(false)
   const [orderToken, setOrderToken] = useState(null)
-  const [orderTotal, setOrderTotal] = useState(0)
+  const [orderData,   setOrderData]  = useState(null)
   const [shop, setShop] = useState({ slot: null, items: [], message: '' })
   const [shopLoading, setShopLoading] = useState(true)
   const [shopError, setShopError] = useState(null)
@@ -369,7 +484,7 @@ export default function User() {
     try {
       const order = await api.createOrder({ slot, items: lines })
       setOrderToken(order.token)
-      setOrderTotal(order.total)
+      setOrderData(order)
       setCartOpen(false)
       setCart({})
     } catch (e) {
@@ -381,11 +496,12 @@ export default function User() {
     return (
       <TokenScreen
         token={orderToken}
-        total={orderTotal}
-        onBack={() => {
-          setOrderToken(null)
-          setOrderTotal(0)
-        }}
+        total={orderData?.total ?? 0}
+        slot={orderData?.slot ?? ''}
+        items={orderData?.items ?? ''}
+        lines={orderData?.lines ?? []}
+        time={orderData?.time ?? ''}
+        onBack={() => { setOrderToken(null); setOrderData(null) }}
       />
     )
   }
