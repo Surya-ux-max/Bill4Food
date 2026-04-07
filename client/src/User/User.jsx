@@ -4,7 +4,6 @@ import { ShoppingCart, Plus, Minus, X, ArrowLeft, Sparkles, Zap, CheckCircle2, C
 import { QRCodeSVG } from 'qrcode.react'
 import html2canvas from 'html2canvas'
 import ClickSpark from './ClickSpark'
-import UpiVerifier from './UpiVerifier'
 import { api } from '../api'
 import { MEAL_SLOTS } from '../Admin/adminData'
 const FloatingFood3D = lazy(() => import('./FloatingFood3D'))
@@ -148,7 +147,7 @@ function BillScreen({ token, total, slot, items, lines, time, onBack }) {
 function TokenScreen({ token, total, slot, items, lines, time, onBack }) {
   const [copied,    setCopied]    = useState(false)
   const [paid,      setPaid]      = useState(false)
-  const [verifying, setVerifying] = useState(false)
+  const [confirming,setConfirming]= useState(false)
   const upiUrl = makeUpiUrl(total, token)
 
   if (paid) return <BillScreen token={token} total={total} slot={slot} items={items} lines={lines} time={time} onBack={onBack} />
@@ -159,8 +158,10 @@ function TokenScreen({ token, total, slot, items, lines, time, onBack }) {
     setTimeout(() => setCopied(false), 2000)
   }
 
-  const handleVerified = async ({ txnRef, payerUpiId }) => {
-    try { await api.confirmPayment(token, { status: 'Paid', txnRef, payerUpiId }) } catch (_) {}
+  const handlePaid = async () => {
+    setConfirming(true)
+    try { await api.confirmPayment(token, { status: 'Paid' }) } catch (_) {}
+    setConfirming(false)
     setPaid(true)
   }
 
@@ -256,22 +257,16 @@ function TokenScreen({ token, total, slot, items, lines, time, onBack }) {
           Open GPay &#8594; Scan QR or enter UPI ID manually
         </motion.p>
 
-        {verifying ? (
-          <div style={{ marginTop: 16, width: '100%', maxWidth: 360, padding: '0 16px' }}>
-            <UpiVerifier total={total} merchantUpi={UPI_ID} token={token} onVerified={handleVerified} onCancel={() => setVerifying(false)} />
-          </div>
-        ) : (
-          <div style={{ display: 'flex', gap: 12, marginTop: 16, flexWrap: 'wrap', justifyContent: 'center' }}>
-            <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} onClick={() => setVerifying(true)}
-              style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '12px 28px', borderRadius: 50, border: 'none', background: G, color: '#fff', fontWeight: 800, fontSize: 14, cursor: 'pointer', boxShadow: `0 4px 20px ${G}50` }}>
-              <CheckCircle2 size={16} /> I've Paid — Verify & Get Bill
-            </motion.button>
-            <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} onClick={onBack}
-              style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '12px 28px', borderRadius: 50, border: `1px solid ${GMID}40`, background: 'rgba(22,163,74,0.15)', color: GMID, fontWeight: 800, fontSize: 14, cursor: 'pointer' }}>
-              <ArrowLeft size={16} /> Order Again
-            </motion.button>
-          </div>
-        )}
+        <div style={{ display: 'flex', gap: 12, marginTop: 16, flexWrap: 'wrap', justifyContent: 'center' }}>
+          <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} onClick={handlePaid}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '12px 28px', borderRadius: 50, border: 'none', background: G, color: '#fff', fontWeight: 800, fontSize: 14, cursor: confirming ? 'not-allowed' : 'pointer', boxShadow: `0 4px 20px ${G}50`, opacity: confirming ? 0.7 : 1 }}>
+            <CheckCircle2 size={16} /> {confirming ? 'Confirming…' : "I've Paid — Show Bill"}
+          </motion.button>
+          <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} onClick={onBack}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '12px 28px', borderRadius: 50, border: `1px solid ${GMID}40`, background: 'rgba(22,163,74,0.15)', color: GMID, fontWeight: 800, fontSize: 14, cursor: 'pointer' }}>
+            <ArrowLeft size={16} /> Order Again
+          </motion.button>
+        </div>
         </div>{/* end zIndex wrapper */}
       </div>
     </ClickSpark>
