@@ -359,7 +359,7 @@ function CartDrawer({ cart, menu, onUpdate, onClose, onCheckout }) {
 function MenuCard({ item, qty, onUpdate }) {
   return (
     <motion.div variants={fadeUp}
-      whileHover={{ y: -8, rotateX: 3, rotateY: -3, scale: 1.02 }}
+      whileHover={{ y: -8, scale: 1.02 }}
       transition={{ type: 'spring', stiffness: 300, damping: 20 }}
       style={{
         background: 'rgba(255,255,255,0.04)',
@@ -368,7 +368,6 @@ function MenuCard({ item, qty, onUpdate }) {
         border: `1px solid ${qty > 0 ? GMID + '60' : GMID + '18'}`,
         overflow: 'hidden',
         boxShadow: qty > 0 ? `0 0 30px ${G}25, 0 8px 32px rgba(0,0,0,0.4)` : '0 4px 24px rgba(0,0,0,0.3)',
-        transformStyle: 'preserve-3d',
         transition: 'border 0.3s, box-shadow 0.3s',
         cursor: 'default',
       }}>
@@ -665,7 +664,7 @@ export default function User() {
             <p style={{ textAlign: 'center', color: GMID }}>{shop.message || 'No items available for this slot. Pick another meal time above.'}</p>
           )}
           <motion.div variants={stagger} initial="hidden" animate="show"
-            style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 24, perspective: 1000 }}>
+            style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 24 }}>
             {menu.map((item) => (
               <MenuCard
                 key={item.id}
